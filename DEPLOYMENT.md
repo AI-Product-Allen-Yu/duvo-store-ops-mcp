@@ -10,8 +10,19 @@
 non-root, runs the MCP server over stdio. That image is the unit of deployment.
 
 ```bash
+# Build the artifact
 docker build -t store-ops-mcp:1.0.0 .
+
+# Run it — the agent attaches to its stdio; -i keeps stdin open
+docker run --rm -i \
+  -e STORE_KEY_47=… \
+  -v store-ops-logs:/var/log/store-ops \
+  store-ops-mcp:1.0.0
 ```
+
+> Native (no Docker): `npm install && npm run build && npm start`. Because the transport is
+> stdio, a bare `npm start` appears to "hang" — it's waiting for JSON-RPC on stdin; an MCP host
+> drives it.
 
 ---
 
@@ -53,6 +64,30 @@ Inside **Korral's own GCP project** (their tenancy), in their VPC — never expo
   **zero-downtime rolling update**. The image itself contains **no secrets** (`.dockerignore`
   excludes `.env`).
 
+## Observability
+
+Every tool call writes to **two** append-only files — one per reader (see `src/logger.ts`):
+
+| File | Audience | Format |
+| --- | --- | --- |
+| `buyer_audit.log` | Korral category buyer reading the trail the next morning | Plain-English, timestamped sentences — one per business decision (what the agent did, and why). |
+| `fde_debug.log` | Forward Deployed Engineer debugging at 11pm | Structured JSONL — timestamp, `event`, store, tool inputs/outputs, and credential events. |
+
+- Both files **append** (never truncated on start). Example traces live in [`samples/`](samples/).
+- Log writes are **best-effort and error-swallowing by design** — a failed write can never crash a
+  tool call or leak a byte onto stdout (stdout is protocol-only).
+- **Secrets are never logged** — only SHA-256 fingerprints — so the trail is safe to retain.
+- In GCP, route container stdout/stderr to **Cloud Logging in-tenant**, or ship the log volume to a
+  **GCS bucket** in the residency region. Confirm the destination + retention with IT (checklist).
+
+## Configuration
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `STORE_KEY_<STOREID>` | yes (per store) | — | Per-store API key. Name = storeId upper-cased, non-alphanumerics → `_` (store `47` → `STORE_KEY_47`). Re-read every request; missing/blank fails safely. |
+| `STORE_OPS_LOG_DIR` | no | `/var/log/store-ops` (image), CWD (native) | Directory for the two log files. |
+| `NODE_ENV` | no | `production` (image) | Standard Node runtime flag. |
+
 ## Who owns the pipeline
 
 - **Duvo owns:** source, Dockerfile, CI (build/test/scan), the image, and the release process
@@ -77,6 +112,16 @@ Inside **Korral's own GCP project** (their tenancy), in their VPC — never expo
   fix-forward and rollback are safe.
 - **On-call:** confirm with IT whether after-hours deploys are **Duvo-driven** (via the granted
   deploy SA) or **Korral-run** from the runbook (see below).
+
+## Verify the artifact
+
+```bash
+npm ci && npm run build                                     # compiles cleanly
+docker build -t store-ops-mcp:1.0.0 .                       # image builds
+docker run --rm --entrypoint sh store-ops-mcp:1.0.0 -c id   # runs non-root (uid=1000 node)
+npm run demo:lockdown                                       # key rotation + fail-safe (Step 4)
+node scripts/task-scenario.mjs                              # the real buyer task end-to-end (Step 2)
+```
 
 ## Confirm with Korral IT before day 1
 

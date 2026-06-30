@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+buyer_audit.log
+fde_debug.log
+
+# Local demo recording (too large for GitHub; share separately)
+*.mp4

@@ -1,0 +1,15 @@
+node_modules
+dist
+npm-debug.log
+*.log
+buyer_audit.log
+fde_debug.log
+.git
+.gitignore
+.dockerignore
+Dockerfile
+DEPLOYMENT.md
+README.md
+scripts
+.env
+.env.*

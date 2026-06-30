@@ -10,6 +10,43 @@ in-memory **mock data** (no database required):
 | `create_replenishment_order` | Places a mock restock order for one or more SKUs, groups lines into purchase orders by supplier, and returns a costed confirmation. |
 | `evaluate_replenishment` | **Check-and-replenish workflow** — for one SKU across N stores, compares on-hand vs. last 24h POS, computes the shortfall gap, and auto-raises an order at every store whose gap exceeds a threshold (default 6). |
 
+## Design choices & tradeoffs
+
+Each choice optimizes for an **agent doing a buyer's job well**, not for a general-purpose API.
+The cost of each is stated plainly.
+
+**1. One combined tool instead of mirroring StoreLink's separate endpoints.**
+Inventory and sales come back together, already compared.
+- *You get:* the agent asks one question and gets an answer it can act on — fewer steps, less to misread, lower chance of a wrong subtraction.
+- *You give up:* generality. Someone who wanted *only* raw inventory gets a bit more than they asked for.
+
+**2. The server does the reorder math, not the agent.**
+The "reorder when the gap exceeds 6" rule lives in code.
+- *You get:* the same correct, explainable decision every time — the model can't fumble the arithmetic.
+- *You give up:* flexibility — the threshold is a sensible default in the server, not chosen per call (though it can be overridden).
+
+**3. Tools return a short confirmation, not the raw system response.**
+An order returns an id, status, and totals.
+- *You get:* the agent sees just enough to confirm success and report back.
+- *You give up:* the full underlying response, which a power user might occasionally want.
+
+**4. A deliberately small toolset — and no destructive tools.**
+No raw database access, no delete, no "edit anything" tool.
+- *You get:* a surface that's safe to hand an autonomous agent and easy to reason about.
+- *You give up:* the ability to do arbitrary operations through this server (by design).
+
+**5. Mock data instead of a live StoreLink connection.**
+- *You get:* anyone can clone and run it in seconds — no credentials, no network.
+- *You give up:* real integration, which wasn't what this exercise was testing.
+
+**6. Keys read fresh on every request; missing keys fail safely.**
+- *You get:* weekly key rotation "just works" with no restart, and an unknown store gets a clear, safe refusal instead of a crash.
+- *You give up:* a negligible re-read on each call.
+
+**7. Two plain-text log files — one for the buyer, one for engineers.**
+- *You get:* each reader gets a log written in their language, with zero extra infrastructure.
+- *You give up:* a searchable dashboard out of the box (the structured log is ready to feed one later).
+
 ## Setup
 
 ```bash

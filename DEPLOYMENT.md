@@ -113,6 +113,20 @@ Every tool call writes to **two** append-only files — one per reader (see `src
 - **On-call:** confirm with IT whether after-hours deploys are **Duvo-driven** (via the granted
   deploy SA) or **Korral-run** from the runbook (see below).
 
+## Mock data
+
+StoreLink is **simulated in-process** (`src/data.ts`) — no external network, so the container runs
+fully offline. The headline SKU for the buyer task is **8847291, Madeta butter 250g**:
+
+| Store | Name | On-hand | POS (last 24h) | Gap | Decision (threshold 6) |
+| --- | --- | --- | --- | --- | --- |
+| 47 | Praha Vinohrady | 4 | 18 | **14** | **reorder** (48 units) |
+| 102 | Brno Kralovo Pole | 5 | 9 | **4** | no action |
+
+The catalog also includes `STORE-001` and `STORE-002` (milk, eggs, beverages, household) so the
+inventory and ordering tools have realistic multi-SKU, multi-supplier data to work with. Swapping in
+the real StoreLink client is a `src/data.ts` change — no tool-surface or transport changes.
+
 ## Verify the artifact
 
 ```bash

@@ -167,6 +167,9 @@ location defaults to the process working directory; override with `STORE_OPS_LOG
 
 stdout is never used for logging — it carries the MCP JSON-RPC stream.
 
+Example traces are committed under [`samples/`](samples/) (the live `*.log` files are
+gitignored — they're generated artifacts and hold business data in production).
+
 ## Mock data
 
 Defined in [`src/data.ts`](src/data.ts): two stores, several SKUs each, three suppliers with
